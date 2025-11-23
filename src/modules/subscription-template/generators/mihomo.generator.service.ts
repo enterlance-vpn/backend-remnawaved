@@ -59,8 +59,9 @@ export class MihomoGeneratorService {
 
     async generateConfig(
         hosts: IFormattedHost[],
-        isStash = false,
+        isStash: boolean = false,
         isFlClashX = false,
+        overrideTemplateName?: string,
     ): Promise<string> {
         try {
             const data: ClashData = {
@@ -76,7 +77,7 @@ export class MihomoGeneratorService {
                 this.addProxy(host, data, proxyRemarks, isFlClashX);
             }
 
-            return await this.renderConfig(data, proxyRemarks, isStash);
+            return await this.renderConfig(data, proxyRemarks, isStash, overrideTemplateName);
         } catch (error) {
             this.logger.error('Error generating clash config:', error);
             return '';
@@ -87,13 +88,15 @@ export class MihomoGeneratorService {
         data: ClashData,
         proxyRemarks: string[],
         isStash: boolean,
+        overrideTemplateName?: string,
     ): Promise<string> {
-        const yamlConfigRaw = await this.subscriptionTemplateService.getYamlTemplateByType(
+        const yamlConfigDb = await this.subscriptionTemplateService.getCachedTemplateByType(
             isStash ? 'STASH' : 'MIHOMO',
+            overrideTemplateName,
         );
 
         try {
-            const yamlConfig = yaml.parse(yamlConfigRaw);
+            const yamlConfig = yamlConfigDb as unknown as any;
 
             if (!Array.isArray(yamlConfig.proxies)) {
                 yamlConfig.proxies = [];
@@ -366,6 +369,9 @@ export class MihomoGeneratorService {
             case 'raw':
                 netOpts = this.tcpConfig(pathValue, host);
                 break;
+            case 'grpc':
+                netOpts = this.grpcConfig(pathValue);
+                break;
         }
 
         if (Object.keys(netOpts).length > 0) {
@@ -433,6 +439,14 @@ export class MihomoGeneratorService {
         if (!path && !host) {
             return config;
         }
+
+        return config;
+    }
+
+    private grpcConfig(path = ''): NetworkConfig {
+        const config: NetworkConfig = {};
+
+        config['grpc-service-name'] = path;
 
         return config;
     }
